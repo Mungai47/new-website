@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Attach to Kubernetes Pod (.NET Core)",
+            "type": "cloudcode.kubernetes",
+            "request": "attach",
+            "language": "NETCore",
+            "podSelector": {
+                "app": "deployment-name"
+            },
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "Path to the Remote Directory Containing the Program"
+        },
+        {
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
@@ -15,3 +26,81 @@
         }
     ]
 }
+
+// Path: .vscode\tasks.json
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build and Push Docker Image",
+            "type": "shell",
+            "command": "docker build -t gcr.io/${PROJECT_ID}/deployment-name .",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Deploy to Kubernetes",
+            "type": "shell",
+            "command": "kubectl apply -f deployment.yaml",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
+
+// Path: deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-name
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+        app: deployment-name
+    template:
+        metadata:
+        labels:
+            app: deployment-name
+        spec:
+        containers:
+        - name: deployment-name
+            image: gcr.io/${PROJECT_ID}/deployment-name
+            ports:
+            - containerPort: 8080
+            env:
+            - name: PORT
+                value: "8080"
+            - name: NODE_ENV
+                value: "production"
+            - name: GOOGLE_CLOUD_PROJECT
+                value: "${PROJECT_ID}"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+                value: "/app/credentials.json"
+            volumeMounts:
+            - name: credentials
+                mountPath: /app/credentials.json
+                subPath: credentials.json
+        volumes:
+        - name: credentials
+            secret:
+            secretName: credentials
+            
+// Path: .dockerignore
+node_modules
+npm-debug.log
+.vscode
+credentials.json
+
+// Path: .gitignore
+node_modules
+npm-debug.log
+.vscode
+credentials.json
+
+
+
